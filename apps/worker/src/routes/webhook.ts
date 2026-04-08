@@ -192,8 +192,46 @@ async function handleEvent(
       event.source.type === 'user' ? event.source.userId : undefined;
     if (!userId) return;
 
-    const friend = await getFriendByLineUserId(db, userId);
-    if (!friend) return;
+    let friend = await getFriendByLineUserId(db, userId);
+    if (!friend) {
+      // 友だち未登録の場合は自動登録（既存友だちがWebhook切替前に追加されたケース）
+      let profile;
+      try {
+        profile = await lineClient.getProfile(userId);
+      } catch (err) {
+        console.error('Failed to get profile for', userId, err);
+      }
+      friend = await upsertFriend(db, {
+        lineUserId: userId,
+        displayName: profile?.displayName ?? null,
+        pictureUrl: profile?.pictureUrl ?? null,
+        statusMessage: profile?.statusMessage ?? null,
+      });
+      console.log('Auto-registered friend from message event:', userId, friend.id);
+
+      // friend_add シナリオにも登録（簡易版）
+      try {
+        const scenarioRows = await db.prepare(
+          `SELECT id FROM scenarios WHERE trigger_type = 'friend_add' AND is_active = 1`
+        ).all<{ id: string }>();
+        for (const s of scenarioRows.results) {
+          try {
+            await enrollFriendInScenario(db, friend.id, s.id);
+          } catch (err) {
+            console.error('Failed to enroll friend in scenario:', s.id, err);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to get scenarios for auto-enroll:', err);
+      }
+
+      // イベントバス発火
+      try {
+        await fireEvent(db, 'friend_add', { friendId: friend.id, eventData: { displayName: friend.display_name } }, lineAccessToken, lineAccountId);
+      } catch (err) {
+        console.error('Failed to fire friend_add event:', err);
+      }
+    }
 
     const incomingText = textMessage.text;
     const now = jstNow();
@@ -235,15 +273,19 @@ async function handleEvent(
           const displayHour = hour <= 12 ? hour : hour - 12;
           await lineClient.replyMessage(event.replyToken, [
             buildMessage('flex', JSON.stringify({
-              type: 'bubble',
-              body: { type: 'box', layout: 'vertical', contents: [
-                { type: 'text', text: '配信時間を設定しました', size: 'lg', weight: 'bold', color: '#1e293b' },
-                { type: 'box', layout: 'vertical', contents: [
-                  { type: 'text', text: `${period} ${displayHour}:00`, size: 'xxl', weight: 'bold', color: '#f59e0b', align: 'center' },
-                  { type: 'text', text: `（${hour}:00〜）`, size: 'sm', color: '#64748b', align: 'center', margin: 'sm' },
-                ], backgroundColor: '#fffbeb', cornerRadius: 'md', paddingAll: '20px', margin: 'lg' },
-                { type: 'text', text: '今後のステップ配信はこの時間以降にお届けします。', size: 'xs', color: '#64748b', wrap: true, margin: 'lg' },
-              ], paddingAll: '20px' },
+              type: 'bubble', size: 'mega',
+              body: { type: 'box', layout: 'vertical', paddingAll: '0px', contents: [
+                { type: 'image', url: 'https://rin-assets.pages.dev/banner.jpg', size: 'full', aspectRatio: '2:3', aspectMode: 'cover' },
+                { type: 'box', layout: 'vertical', position: 'absolute', offsetTop: '0px', offsetBottom: '0px', offsetStart: '0px', offsetEnd: '0px',
+                  background: { type: 'linearGradient', angle: '0deg', startColor: '#0B0E2A44', centerColor: '#0B0E2A99', endColor: '#0B0E2Add' },
+                  paddingAll: '24px', justifyContent: 'center', contents: [
+                    { type: 'text', text: '配信時間を設定しました', size: 'md', weight: 'bold', color: '#C9B77D' },
+                    { type: 'separator', color: '#C9B77D44', margin: 'lg' },
+                    { type: 'text', text: `${period} ${displayHour}:00`, size: 'xxl', weight: 'bold', color: '#f5f0e8', align: 'center', margin: 'xl' },
+                    { type: 'text', text: `（${hour}:00〜）`, size: 'sm', color: '#d0c8e0', align: 'center', margin: 'sm' },
+                    { type: 'text', text: '今後のステップ配信は\nこの時間以降にお届けします。', size: 'xs', color: '#A8A0B8', wrap: true, margin: 'xl' },
+                  ]},
+              ]},
             })),
           ]);
         } catch (err) {

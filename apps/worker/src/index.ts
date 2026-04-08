@@ -161,7 +161,7 @@ async function scheduled(
       processReminderDeliveries(env.DB, lineClient),
     );
   }
-  jobs.push(checkAccountHealth(env.DB));
+  jobs.push(checkAccountHealth(env.DB, env.LINE_CHANNEL_ACCESS_TOKEN));
 
   await Promise.allSettled(jobs);
 }

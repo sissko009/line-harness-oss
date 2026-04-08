@@ -1,4 +1,5 @@
 import { extractFlexAltText } from '../utils/flex-alt-text.js';
+import { wrapInRinCard } from '../utils/rin-card.js';
 
 /**
  * イベントバス — システム内イベントの発火と処理
@@ -56,7 +57,12 @@ export async function fireEvent(
     );
   }
 
-  await Promise.allSettled(jobs);
+  const results = await Promise.allSettled(jobs);
+  results.forEach((r, i) => {
+    if (r.status === 'rejected') {
+      console.error(`fireEvent job[${i}] failed for ${eventType}:`, r.reason);
+    }
+  });
 }
 
 /** 送信Webhookへの通知 */
@@ -232,16 +238,28 @@ async function executeAction(
       if (!friend) break;
       const lineClient = new LineClient(lineAccessToken);
       const msgType = action.params.messageType || 'text';
+      // Quick Reply対応（文字列でもオブジェクトでも対応）
+      let quickReply: unknown;
+      if (action.params.quickReply) {
+        quickReply = typeof action.params.quickReply === 'string'
+          ? JSON.parse(action.params.quickReply)
+          : action.params.quickReply;
+      }
       if (msgType === 'flex') {
         const contents = JSON.parse(action.params.content);
-        await lineClient.pushMessage(friend.line_user_id, [
-          { type: 'flex', altText: action.params.altText || extractFlexAltText(contents), contents },
-        ]);
+        const msg: Record<string, unknown> = { type: 'flex', altText: action.params.altText || extractFlexAltText(contents), contents };
+        if (quickReply) msg.quickReply = quickReply;
+        await lineClient.pushMessage(friend.line_user_id, [msg]);
       } else {
-        // Default: text message
-        await lineClient.pushMessage(friend.line_user_id, [
-          { type: 'text', text: action.params.content },
-        ]);
+        // テキストを凛の世界観カードに自動変換
+        const cardContents = wrapInRinCard(action.params.content);
+        const msg: Record<string, unknown> = {
+          type: 'flex',
+          altText: action.params.content.substring(0, 60).replace(/\n/g, ' '),
+          contents: cardContents,
+        };
+        if (quickReply) msg.quickReply = quickReply;
+        await lineClient.pushMessage(friend.line_user_id, [msg]);
       }
       break;
     }

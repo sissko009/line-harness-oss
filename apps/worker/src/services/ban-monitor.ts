@@ -12,8 +12,19 @@ import {
 
 export async function checkAccountHealth(
   db: D1Database,
+  envToken?: string,
 ): Promise<void> {
   const accounts = await getLineAccounts(db);
+
+  // DB に登録済みアカウントがなく、env のトークンがある場合はそちらで監視
+  if (accounts.length === 0 && envToken) {
+    try {
+      await checkSingleAccount(db, { id: 'default', channel_access_token: envToken });
+    } catch (err) {
+      console.error('ヘルスチェックエラー (default account):', err);
+    }
+    return;
+  }
 
   for (const account of accounts) {
     if (!account.is_active) continue;
