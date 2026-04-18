@@ -16,6 +16,7 @@ import {
 } from '@line-crm/db';
 import { fireEvent } from '../services/event-bus.js';
 import { buildMessage, expandVariables } from '../services/step-delivery.js';
+import { handleDiagnosisMessage } from '../services/diagnosis-bot.js';
 import type { Env } from '../index.js';
 
 const webhook = new Hono<Env>();
@@ -66,7 +67,7 @@ webhook.post('/webhook', async (c) => {
   const processingPromise = (async () => {
     for (const event of body.events) {
       try {
-        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin);
+        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL);
       } catch (err) {
         console.error('Error handling webhook event:', err);
       }
@@ -85,6 +86,7 @@ async function handleEvent(
   lineAccessToken: string,
   lineAccountId: string | null = null,
   workerUrl?: string,
+  liffUrl?: string,
 ): Promise<void> {
   if (event.type === 'follow') {
     const userId =
@@ -112,10 +114,29 @@ async function handleEvent(
         .bind(lineAccountId, friend.id).run();
     }
 
-    // friend_add シナリオに登録（このアカウントのシナリオのみ）
+    // ── あいさつメッセージ: 3吹き出し（画像2枚 + テキスト） ──
+    // 設計書: あいさつメッセージ実装案.md — 友だち追加直後に同時配信
+    try {
+      const greetingMessages = buildGreetingMessages();
+      await lineClient.replyMessage(event.replyToken, greetingMessages);
+      console.log(`Greeting sent: 3 bubbles to ${userId}`);
+
+      // ログ記録
+      const greetLogId = crypto.randomUUID();
+      await db
+        .prepare(
+          `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, created_at)
+           VALUES (?, ?, 'outgoing', 'flex', '[greeting:3bubbles]', NULL, NULL, 'reply', ?)`,
+        )
+        .bind(greetLogId, friend.id, jstNow())
+        .run();
+    } catch (err) {
+      console.error('Failed to send greeting messages', err);
+    }
+
+    // friend_add シナリオに登録（Day0はあいさつで既に送信済みなのでスキップ）
     const scenarios = await getScenarios(db);
     for (const scenario of scenarios) {
-      // Only trigger scenarios belonging to this account (or unassigned for backward compat)
       const scenarioAccountMatch = !scenario.line_account_id || !lineAccountId || scenario.line_account_id === lineAccountId;
       if (scenario.trigger_type === 'friend_add' && scenario.is_active && scenarioAccountMatch) {
         try {
@@ -126,43 +147,24 @@ async function handleEvent(
           if (!existing) {
             const friendScenario = await enrollFriendInScenario(db, friend.id, scenario.id);
 
-            // Immediate delivery: if the first step has delay=0, send it now via replyMessage (free)
+            // Day0(step_order=0, delay=0)はあいさつメッセージとして既に送信済み
+            // → Day1(次のステップ)から配信を開始する
             const steps = await getScenarioSteps(db, scenario.id);
             const firstStep = steps[0];
             if (firstStep && firstStep.delay_minutes === 0 && friendScenario.status === 'active') {
-              try {
-                const expandedContent = expandVariables(firstStep.message_content, friend as { id: string; display_name: string | null; user_id: string | null });
-                const message = buildMessage(firstStep.message_type, expandedContent);
-                await lineClient.replyMessage(event.replyToken, [message]);
-                console.log(`Immediate delivery: sent step ${firstStep.id} to ${userId}`);
-
-                // Log outgoing message (replyMessage = 無料)
-                const logId = crypto.randomUUID();
-                await db
-                  .prepare(
-                    `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, created_at)
-                     VALUES (?, ?, 'outgoing', ?, ?, NULL, ?, 'reply', ?)`,
-                  )
-                  .bind(logId, friend.id, firstStep.message_type, firstStep.message_content, firstStep.id, jstNow())
-                  .run();
-
-                // Advance or complete the friend_scenario
-                const secondStep = steps[1] ?? null;
-                if (secondStep) {
-                  const nextDeliveryDate = new Date(Date.now() + 9 * 60 * 60_000);
-                  nextDeliveryDate.setMinutes(nextDeliveryDate.getMinutes() + secondStep.delay_minutes);
-                  // Enforce 9:00-21:00 JST delivery window
-                  const h = nextDeliveryDate.getUTCHours();
-                  if (h < 9 || h >= 21) {
-                    if (h >= 21) nextDeliveryDate.setUTCDate(nextDeliveryDate.getUTCDate() + 1);
-                    nextDeliveryDate.setUTCHours(9, 0, 0, 0);
-                  }
-                  await advanceFriendScenario(db, friendScenario.id, firstStep.step_order, nextDeliveryDate.toISOString().slice(0, -1) + '+09:00');
-                } else {
-                  await completeFriendScenario(db, friendScenario.id);
+              // Day0をスキップしてDay1へ進める
+              const secondStep = steps[1] ?? null;
+              if (secondStep) {
+                const nextDeliveryDate = new Date(Date.now() + 9 * 60 * 60_000);
+                nextDeliveryDate.setMinutes(nextDeliveryDate.getMinutes() + secondStep.delay_minutes);
+                const h = nextDeliveryDate.getUTCHours();
+                if (h < 9 || h >= 21) {
+                  if (h >= 21) nextDeliveryDate.setUTCDate(nextDeliveryDate.getUTCDate() + 1);
+                  nextDeliveryDate.setUTCHours(9, 0, 0, 0);
                 }
-              } catch (err) {
-                console.error('Failed immediate delivery for scenario', scenario.id, err);
+                await advanceFriendScenario(db, friendScenario.id, firstStep.step_order, nextDeliveryDate.toISOString().slice(0, -1) + '+09:00');
+              } else {
+                await completeFriendScenario(db, friendScenario.id);
               }
             }
           }
@@ -324,7 +326,7 @@ async function handleEvent(
               footer: { type: 'box', layout: 'vertical', paddingAll: '16px',
                 contents: [
                   { type: 'button', action: { type: 'message', label: '導入について相談する', text: '導入支援を希望します' }, style: 'primary', color: '#06C755' },
-                  ...(c.env.LIFF_URL ? [{ type: 'button', action: { type: 'uri', label: 'フィードバックを送る', uri: `${c.env.LIFF_URL}?page=form` }, style: 'secondary', margin: 'sm' }] : []),
+                  ...(liffUrl ? [{ type: 'button', action: { type: 'uri', label: 'フィードバックを送る', uri: `${liffUrl}?page=form` }, style: 'secondary', margin: 'sm' }] : []),
                 ],
               },
             }))]);
@@ -345,6 +347,35 @@ async function handleEvent(
       } catch (err) {
         console.error('Cross-account trigger error:', err);
       }
+    }
+
+    // ── 診断Bot処理（「湖」キーワード or 診断中の回答） ──
+    const diagnosisResult = await handleDiagnosisMessage(db, friend.id, incomingText);
+    if (diagnosisResult.consumed) {
+      try {
+        await lineClient.replyMessage(event.replyToken, diagnosisResult.messages);
+
+        // 送信ログ
+        for (const msg of diagnosisResult.messages) {
+          const outLogId = crypto.randomUUID();
+          await db
+            .prepare(
+              `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, created_at)
+               VALUES (?, ?, 'outgoing', ?, ?, NULL, NULL, 'reply', ?)`,
+            )
+            .bind(outLogId, friend.id, msg.type, JSON.stringify(msg), jstNow())
+            .run();
+        }
+      } catch (err) {
+        console.error('Failed to send diagnosis reply', err);
+      }
+
+      // イベントバス発火
+      await fireEvent(db, 'message_received', {
+        friendId: friend.id,
+        eventData: { text: incomingText, matched: true, diagnosis: diagnosisResult.diagnosisType || true },
+      }, lineAccessToken, lineAccountId);
+      return;
     }
 
     // 自動返信チェック（このアカウントのルール + グローバルルールのみ）
@@ -402,6 +433,103 @@ async function handleEvent(
 
     return;
   }
+}
+
+/**
+ * あいさつメッセージ: 3吹き出し構成
+ * 設計参照: 占い事業/LINE/あいさつメッセージ実装案.md
+ *
+ * 1. 画像: 世界観訴求（背景画像+テキスト中央配置）
+ * 2. テキスト: 診断の受け方（LINE標準テキスト）
+ * 3. テキスト: Day0（LINE標準テキスト）
+ */
+import type { Message } from '@line-crm/line-sdk';
+
+function buildGreetingMessages(): Message[] {
+  // 吹き出し1: 世界観画像（背景+テキスト上下中央配置）
+  const image1: Message = {
+    type: 'flex',
+    altText: 'ようこそ、境界の湖へ。',
+    contents: {
+      type: 'bubble',
+      size: 'mega',
+      body: {
+        type: 'box',
+        layout: 'vertical',
+        paddingAll: '0px',
+        contents: [
+          {
+            type: 'image',
+            url: 'https://master.rin-assets.pages.dev/greeting-bg.jpg',
+            size: 'full',
+            aspectRatio: '2:3',
+            aspectMode: 'cover',
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            position: 'absolute',
+            offsetTop: '0px',
+            offsetBottom: '0px',
+            offsetStart: '0px',
+            offsetEnd: '0px',
+            background: {
+              type: 'linearGradient',
+              angle: '0deg',
+              startColor: '#0B0E2A88',
+              centerColor: '#0B0E2A66',
+              endColor: '#0B0E2A88',
+            },
+            paddingAll: '28px',
+            justifyContent: 'center',
+            alignItems: 'center',
+            contents: [
+              { type: 'text', text: '猫タロット占い師　凛', size: 'sm', color: '#C9B77D', align: 'center', weight: 'bold' },
+              { type: 'text', text: 'ようこそ、\n境界の湖へ。', size: 'xxl', weight: 'bold', color: '#F0F0F5', align: 'center', margin: 'xl', wrap: true },
+              { type: 'separator', color: '#C9B77D44', margin: 'xl' },
+              { type: 'text', text: '凛は、彼の気持ちと\n恋の停滞理由を静かに読みます。', size: 'md', color: '#A8A0B8', wrap: true, align: 'center', margin: 'xl' },
+              { type: 'text', text: 'LINE登録で最初の診断をお届け', size: 'sm', color: '#C9B77D', align: 'center', margin: 'xl' },
+              { type: 'text', text: 'トークで「湖」と送ってください', size: 'sm', color: '#A8A0B8', align: 'center', margin: 'sm' },
+            ],
+          },
+        ],
+      },
+    },
+  } as unknown as Message;
+
+  // 吹き出し2: 診断の受け方（LINE標準テキスト）
+  const text2: Message = {
+    type: 'text',
+    text: `🌙 最初の診断の受け取り方
+
+① LINEで友だち追加（完了 ✨）
+② トークで「湖」と送る
+③ 凛の簡単な診断が始まります
+
+今の恋がどこで止まりやすいか、凛がそっと読みます。`,
+  } as Message;
+
+  // 吹き出し3: Day0テキスト（LINE標準テキスト）
+  const text3: Message = {
+    type: 'text',
+    text: `……耳が、ぴくっと動きました。
+
+はじめまして。猫タロット占い師の、凛です 🐾
+
+彼の気持ちがわからない。この恋を進めていいのかもわからない。そういう夜に、ここへ来た人の話を凛はたくさん見てきました。
+
+凛は、彼の気持ちを見るだけでは終わりません。この恋がなぜ止まっているのか、どこを見誤りやすいのかまで、静かに読みます。
+
+もし今、自分の恋がどこで止まりやすいのか少しだけ覗いてみたくなったら、
+
+「湖」
+
+と送ってください 🌙
+
+凛が、いくつかの問いを通して最初の診断を始めます。`,
+  } as Message;
+
+  return [image1, text2, text3];
 }
 
 export { webhook };

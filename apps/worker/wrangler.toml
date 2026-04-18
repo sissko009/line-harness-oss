@@ -2,6 +2,10 @@ name = "line-harness"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 workers_dev = true
+
+[vars]
+X_HARNESS_URL = "https://kossan-x.liafis009.workers.dev"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "line-crm"

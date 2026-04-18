@@ -23,7 +23,7 @@ import {
   enrollFriendInScenario,
   jstNow,
 } from '@line-crm/db';
-import { LineClient } from '@line-crm/line-sdk';
+import { LineClient, type Message } from '@line-crm/line-sdk';
 import { sendAdConversions } from './ad-conversion.js';
 
 export interface EventPayload {
@@ -247,13 +247,13 @@ async function executeAction(
       }
       if (msgType === 'flex') {
         const contents = JSON.parse(action.params.content);
-        const msg: Record<string, unknown> = { type: 'flex', altText: action.params.altText || extractFlexAltText(contents), contents };
+        const msg: Message & { quickReply?: unknown } = { type: 'flex', altText: action.params.altText || extractFlexAltText(contents), contents };
         if (quickReply) msg.quickReply = quickReply;
         await lineClient.pushMessage(friend.line_user_id, [msg]);
       } else {
         // テキストを凛の世界観カードに自動変換
         const cardContents = wrapInRinCard(action.params.content);
-        const msg: Record<string, unknown> = {
+        const msg: Message & { quickReply?: unknown } = {
           type: 'flex',
           altText: action.params.content.substring(0, 60).replace(/\n/g, ' '),
           contents: cardContents,

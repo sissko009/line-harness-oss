@@ -271,13 +271,8 @@ function cleanEmptyNodes(obj: unknown): void {
 
 export function buildMessage(messageType: string, messageContent: string, altText?: string): Message {
   if (messageType === 'text') {
-    // テキストを凛の世界観カードに自動変換
-    const cardContents = wrapInRinCard(messageContent);
-    return {
-      type: 'flex',
-      altText: messageContent.substring(0, 60).replace(/\n/g, ' '),
-      contents: cardContents,
-    } as unknown as Message;
+    // LINE標準テキストメッセージとしてそのまま送信
+    return { type: 'text', text: messageContent };
   }
 
   if (messageType === 'image') {
