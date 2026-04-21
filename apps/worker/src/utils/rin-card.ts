@@ -100,7 +100,7 @@ function buildTextContents(text: string): Record<string, unknown>[] {
 
     if (hasUrl) {
       const lines = para.split('\n');
-      let lastLabel = '凛に縁���見せる';
+      let lastLabel = 'まず現在地を整える';
       lines.forEach(line => {
         if (line.includes('https://')) {
           textContents.push({
