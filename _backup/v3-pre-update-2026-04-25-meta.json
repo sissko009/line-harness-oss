@@ -1,0 +1,73 @@
+[
+  {
+    "results": [
+      {
+        "id": "95fd77c3-9ddc-4601-93a0-caaa6539810a",
+        "step_order": 1,
+        "delay_minutes": 1440,
+        "message_type": "text",
+        "len": 339
+      },
+      {
+        "id": "cf8add6a-493e-4e7c-9aaa-dad03fb6b634",
+        "step_order": 2,
+        "delay_minutes": 2880,
+        "message_type": "text",
+        "len": 354
+      },
+      {
+        "id": "7114749c-208f-46d6-9eb2-aa64ef2e4c4e",
+        "step_order": 3,
+        "delay_minutes": 4320,
+        "message_type": "text",
+        "len": 395
+      },
+      {
+        "id": "dc513255-1dbd-48fa-a193-412d5dfba2e0",
+        "step_order": 4,
+        "delay_minutes": 5760,
+        "message_type": "text",
+        "len": 425
+      },
+      {
+        "id": "40a1149b-48d6-461d-abf3-14951d2dd91e",
+        "step_order": 5,
+        "delay_minutes": 7200,
+        "message_type": "text",
+        "len": 402
+      },
+      {
+        "id": "839a6451-4c53-426c-906d-fb3dc0201be9",
+        "step_order": 6,
+        "delay_minutes": 8640,
+        "message_type": "text",
+        "len": 471
+      },
+      {
+        "id": "3428d477-cc43-49ac-a089-911832990842",
+        "step_order": 7,
+        "delay_minutes": 10080,
+        "message_type": "text",
+        "len": 651
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "APAC",
+      "served_by_colo": "NRT",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.6534
+      },
+      "duration": 0.6534,
+      "changes": 0,
+      "last_row_id": 0,
+      "changed_db": false,
+      "size_after": 2158592,
+      "rows_read": 8,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]
