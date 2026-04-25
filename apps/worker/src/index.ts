@@ -91,6 +91,21 @@ app.route('/', forms);
 app.route('/', adPlatforms);
 app.route('/', staff);
 
+// Instagram → LINE 301 redirects with UTM
+// /l = bio link / /h = highlight (Stories) link
+// Source: 占い事業/instagram/02_LINE誘導動線設計.md
+const LINE_FRIEND_URL = 'https://lin.ee/TN95dUn';
+
+app.get('/l', (c) => {
+  const target = `${LINE_FRIEND_URL}?utm_source=ig&utm_medium=bio`;
+  return c.redirect(target, 301);
+});
+
+app.get('/h', (c) => {
+  const target = `${LINE_FRIEND_URL}?utm_source=ig&utm_medium=highlight`;
+  return c.redirect(target, 301);
+});
+
 // Short link: /r/:ref → landing page with LINE open button
 app.get('/r/:ref', (c) => {
   const ref = c.req.param('ref');
