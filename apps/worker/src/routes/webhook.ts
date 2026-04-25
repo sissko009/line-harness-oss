@@ -62,6 +62,7 @@ webhook.post('/webhook', async (c) => {
   }
 
   const lineClient = new LineClient(channelAccessToken);
+  const n8nPostbackSourceUrl = c.env.N8N_POSTBACK_SOURCE_URL;
 
   // 非同期処理 — LINE は ~1s 以内のレスポンスを要求
   const processingPromise = (async () => {
@@ -70,6 +71,13 @@ webhook.post('/webhook', async (c) => {
         await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL);
       } catch (err) {
         console.error('Error handling webhook event:', err);
+      }
+
+      // Day0アンケート（IG流入元postback）→ n8n WF6 へ転送（既存処理に影響しないよう独立try-catchで隔離）
+      try {
+        await forwardPostbackSourceToN8n(event, n8nPostbackSourceUrl);
+      } catch (err) {
+        console.error('Failed to forward postback source to n8n WF6 (non-blocking):', err);
       }
     }
   })();
@@ -432,6 +440,48 @@ async function handleEvent(
     }, lineAccessToken, lineAccountId);
 
     return;
+  }
+}
+
+/**
+ * Day0アンケート postback → n8n WF6 forward
+ * 対象: event.type === 'postback' && event.postback.data === 'src=ig_bio' | 'src=ig_highlight' | 'src=other'
+ * n8n WF6 で Sheets顧客台帳の source 列に upsert する。
+ *
+ * - 既存webhook処理に影響しないよう独立try-catchで隔離（呼び出し元）
+ * - N8N_POSTBACK_SOURCE_URL 未設定時は no-op（ローカル/テスト環境を考慮）
+ * - 対象外のpostback（src= 以外）はスキップ
+ * - ネットワーク失敗・n8n側エラーも握り潰す（postback応答済みのため再送不要）
+ */
+const POSTBACK_SOURCE_VALUES = new Set(['src=ig_bio', 'src=ig_highlight', 'src=other']);
+
+async function forwardPostbackSourceToN8n(
+  event: WebhookEvent,
+  n8nUrl: string | undefined,
+): Promise<void> {
+  if (!n8nUrl) return;
+  if (event.type !== 'postback') return;
+
+  const data = (event as { postback?: { data?: string } }).postback?.data ?? '';
+  if (!POSTBACK_SOURCE_VALUES.has(data)) return;
+
+  const userId = event.source.type === 'user' ? event.source.userId : undefined;
+  if (!userId) return;
+
+  const payload = {
+    userId,
+    data,
+    timestamp: new Date().toISOString(),
+  };
+
+  const res = await fetch(n8nUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    console.error(`n8n WF6 forward failed: status=${res.status}`);
   }
 }
 

@@ -47,6 +47,7 @@ export type Env = {
     LINE_LOGIN_CHANNEL_SECRET: string;
     WORKER_URL: string;
     X_HARNESS_URL?: string;  // Optional: X Harness API URL for account linking
+    N8N_POSTBACK_SOURCE_URL?: string;  // Optional: n8n WF6 webhook for postback→source記録 (Day0アンケート)
   };
   Variables: {
     staff: { id: string; name: string; role: 'owner' | 'admin' | 'staff' };
