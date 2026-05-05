@@ -94,7 +94,7 @@ app.route('/', staff);
 
 // Instagram → LINE 301 redirects with UTM
 // /l = bio link / /h = highlight (Stories) link
-// Source: 占い事業/instagram/02_LINE誘導動線設計.md
+// Source: 占い事業/instagram/20_運用ルール/02_LINE誘導動線設計.md
 const LINE_FRIEND_URL = 'https://lin.ee/TN95dUn';
 
 app.get('/l', (c) => {

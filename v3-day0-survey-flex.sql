@@ -3,8 +3,8 @@
 -- Day0直後アンケートFlex Message を friend_add scenario に追加
 -- ============================================================
 -- 作成日: 2026-04-25
--- 設計正本: 占い事業/instagram/11_n8n-D5-Day0アンケートFlex設計.md
--- 設計補助: 占い事業/instagram/02_LINE誘導動線設計.md
+-- 設計正本: 占い事業/instagram/90_技術_n8n/11_n8n-D5-Day0アンケートFlex設計.md
+-- 設計補助: 占い事業/instagram/20_運用ルール/02_LINE誘導動線設計.md
 --
 -- 目的:
 --   friend_add (8ee12685-8ffa-491d-8bed-0c788a02307f) シナリオに
