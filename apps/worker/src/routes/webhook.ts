@@ -499,7 +499,7 @@ function buildGreetingMessages(): Message[] {
   // 吹き出し1: 世界観画像（背景+テキスト上下中央配置）
   const image1: Message = {
     type: 'flex',
-    altText: 'ようこそ、境界の湖へ。',
+    altText: '優しいのに進まない関係を、鏡の湖で整える場所です。',
     contents: {
       type: 'bubble',
       size: 'mega',
@@ -534,11 +534,11 @@ function buildGreetingMessages(): Message[] {
             justifyContent: 'center',
             alignItems: 'center',
             contents: [
-              { type: 'text', text: '猫タロット占い師　凛', size: 'sm', color: '#C9B77D', align: 'center', weight: 'bold' },
-              { type: 'text', text: 'ようこそ、\n境界の湖へ。', size: 'xxl', weight: 'bold', color: '#F0F0F5', align: 'center', margin: 'xl', wrap: true },
+              { type: 'text', text: '凛', size: 'sm', color: '#C9B77D', align: 'center', weight: 'bold' },
+              { type: 'text', text: '優しいのに進まない関係を\n鏡の湖で、まず整える', size: 'xxl', weight: 'bold', color: '#F0F0F5', align: 'center', margin: 'xl', wrap: true },
               { type: 'separator', color: '#C9B77D44', margin: 'xl' },
-              { type: 'text', text: '凛は、彼の気持ちと\n恋の停滞理由を静かに読みます。', size: 'md', color: '#A8A0B8', wrap: true, align: 'center', margin: 'xl' },
-              { type: 'text', text: 'LINE登録で最初の診断をお届け', size: 'sm', color: '#C9B77D', align: 'center', margin: 'xl' },
+              { type: 'text', text: '彼の気持ちより、\n行動・約束の置き方を見る場所。', size: 'md', color: '#A8A0B8', wrap: true, align: 'center', margin: 'xl' },
+              { type: 'text', text: '3-12か月の境界期間を、\nひとりで抱えなくていい。', size: 'sm', color: '#C9B77D', align: 'center', margin: 'xl', wrap: true },
               { type: 'text', text: 'トークで「湖」と送ってください', size: 'sm', color: '#A8A0B8', align: 'center', margin: 'sm' },
             ],
           },
@@ -550,33 +550,45 @@ function buildGreetingMessages(): Message[] {
   // 吹き出し2: 診断の受け方（LINE標準テキスト）
   const text2: Message = {
     type: 'text',
-    text: `🌙 最初の診断の受け取り方
+    text: `最初の診断の受け取り方
 
-① LINEで友だち追加（完了 ✨）
-② トークで「湖」と送る
-③ 凛の簡単な診断が始まります
+1. トークで「湖」と送る
+2. 3つの質問に答える
+3. 進む・待つ・手放すの判断材料を受け取る
 
-今の恋がどこで止まりやすいか、凛がそっと読みます。`,
+凛は急がせません。
+まずは読むだけでOKです。`,
   } as Message;
 
   // 吹き出し3: Day0テキスト（LINE標準テキスト）
   const text3: Message = {
     type: 'text',
-    text: `……耳が、ぴくっと動きました。
+    text: `縁がつながりましたね。
+ここは、30代の優しいのに進まない関係を、鏡の湖で整える場所です。
 
-はじめまして。猫タロット占い師の、凛です 🐾
+連絡はある。
+会えばやさしい。
+でも、結婚の話が出ない。
+次の約束が曖昧なまま、32歳や33歳の時間だけが進んでいく。
 
-彼の気持ちがわからない。この恋を進めていいのかもわからない。そういう夜に、ここへ来た人の話を凛はたくさん見てきました。
+そんな夜に、凛はいます。
 
-凛は、彼の気持ちを見るだけでは終わりません。この恋がなぜ止まっているのか、どこを見誤りやすいのかまで、静かに読みます。
+凛が見るのは、彼の気持ちを当てることではありません。
+気持ちより、行動・約束の置き方を見ます。
+鏡の湖が、表と裏のズレを映すからです。
 
-もし今、自分の恋がどこで止まりやすいのか少しだけ覗いてみたくなったら、
+ここでは、進む・待つ・手放すを自分で選べる軸を作ります。
+急いで決めなくて大丈夫。
+まずは読むだけでOKです。
 
-「湖」
+このあと数日に分けて、
+「なぜこんなに苦しいのか」
+「好意の有無だけでは足りない理由」
+「結婚の話が止まる構造」
+を順に届けます。
 
-と送ってください 🌙
-
-凛が、いくつかの問いを通して最初の診断を始めます。`,
+必要になった時だけ、関係整理の入口も置いておきます。
+凛は急がせません。`,
   } as Message;
 
   return [image1, text2, text3];
