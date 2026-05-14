@@ -12,3 +12,9 @@ dist/
 apps/web/out/
 
 tmp_*.sql
+
+# DB backup（PII含むため絶対commitしない）
+_backup/
+**/d1-backup*.sql
+**/*.dump
+**/*.bak.sql
