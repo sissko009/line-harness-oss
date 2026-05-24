@@ -17,6 +17,8 @@ import {
 import { fireEvent } from '../services/event-bus.js';
 import { buildMessage, expandVariables } from '../services/step-delivery.js';
 import { handleDiagnosisMessage } from '../services/diagnosis-bot.js';
+import { detectEscalation, buildAcknowledgeMessage, ESCALATION_LABELS } from '../services/escalation-detector.js';
+import { notifyEscalation } from '../services/escalation-notify.js';
 import type { Env } from '../index.js';
 
 const webhook = new Hono<Env>();
@@ -68,7 +70,7 @@ webhook.post('/webhook', async (c) => {
   const processingPromise = (async () => {
     for (const event of body.events) {
       try {
-        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL);
+        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL, c.env);
       } catch (err) {
         console.error('Error handling webhook event:', err);
       }
@@ -95,6 +97,7 @@ async function handleEvent(
   lineAccountId: string | null = null,
   workerUrl?: string,
   liffUrl?: string,
+  env?: Env['Bindings'],
 ): Promise<void> {
   if (event.type === 'follow') {
     const userId =
@@ -357,7 +360,60 @@ async function handleEvent(
       }
     }
 
-    // ── 診断Bot処理（「湖」キーワード or 診断中の回答） ──
+    // ── エスカレーション検出（最優先・自動応答停止＋通知） ──
+    // 2026-05-24: 返金・クレーム・体調安全相談・強い不安を検知して人へエスカレーションする。
+    // 設計参照: 占い事業/LINE/2026-05-24_クレーム返金体調エスカレーション設計.md
+    const escalationCategory = detectEscalation(incomingText);
+    if (escalationCategory) {
+      try {
+        // 1. 最小応答（自動応答で完結させない意思表示）
+        await lineClient.replyMessage(event.replyToken, [buildAcknowledgeMessage(escalationCategory)]);
+
+        // 2. friend metadata に escalation_pending を記録（既存値とマージ）
+        const friendRow = await db.prepare('SELECT metadata FROM friends WHERE id = ?')
+          .bind(friend.id).first<{ metadata: string }>();
+        const existingMeta = JSON.parse(friendRow?.metadata || '{}') as Record<string, unknown>;
+        const mergedMeta = {
+          ...existingMeta,
+          escalation_pending: true,
+          escalation_category: escalationCategory,
+          escalation_at: jstNow(),
+        };
+        await db.prepare('UPDATE friends SET metadata = ? WHERE id = ?')
+          .bind(JSON.stringify(mergedMeta), friend.id).run();
+
+        // 3. 運営者へ通知（Discord webhook・未設定なら no-op）
+        await notifyEscalation(
+          { ESCALATION_DISCORD_WEBHOOK: env?.ESCALATION_DISCORD_WEBHOOK },
+          {
+            category: escalationCategory,
+            friendId: friend.id,
+            friendDisplayName: friend.display_name,
+            incomingText,
+            receivedAt: jstNow(),
+          },
+        );
+
+        // 4. 受信ログ + イベント発火（後段の自動応答へは流さない）
+        const inLogId = crypto.randomUUID();
+        await db.prepare(
+          `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, created_at)
+           VALUES (?, ?, 'incoming', 'text', ?, NULL, NULL, 'webhook', ?)`,
+        ).bind(inLogId, friend.id, incomingText, jstNow()).run();
+
+        await fireEvent(db, 'message_received', {
+          friendId: friend.id,
+          eventData: { text: incomingText, escalation: ESCALATION_LABELS[escalationCategory] },
+        }, lineAccessToken, lineAccountId);
+
+        return;
+      } catch (err) {
+        console.error('Escalation handling error:', err);
+        // 通知失敗してもメッセージ受信処理は止めない（後段へfall-through）
+      }
+    }
+
+    // ── 診断Bot処理（2026-05-24 DEPRECATED・consumed=false で後段に流す） ──
     const diagnosisResult = await handleDiagnosisMessage(db, friend.id, incomingText);
     if (diagnosisResult.consumed) {
       try {
