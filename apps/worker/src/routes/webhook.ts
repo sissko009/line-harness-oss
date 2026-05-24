@@ -539,7 +539,7 @@ function buildGreetingMessages(): Message[] {
               { type: 'separator', color: '#C9B77D44', margin: 'xl' },
               { type: 'text', text: '彼の気持ちより、\n行動・約束の置き方を見る場所。', size: 'md', color: '#A8A0B8', wrap: true, align: 'center', margin: 'xl' },
               { type: 'text', text: '3-12か月の境界期間を、\nひとりで抱えなくていい。', size: 'sm', color: '#C9B77D', align: 'center', margin: 'xl', wrap: true },
-              { type: 'text', text: 'トークで「湖」と送ってください', size: 'sm', color: '#A8A0B8', align: 'center', margin: 'sm' },
+              { type: 'text', text: '明日から、判断軸の話を届けます', size: 'sm', color: '#A8A0B8', align: 'center', margin: 'sm' },
             ],
           },
         ],
@@ -547,14 +547,16 @@ function buildGreetingMessages(): Message[] {
     },
   } as unknown as Message;
 
-  // 吹き出し2: 診断の受け方（LINE標準テキスト）
+  // 吹き出し2: LINEで届くもの（LINE標準テキスト）
+  // 2026-05-24 更新: 旧「最初の診断の受け取り方（湖キーワード送信フロー）」を廃止し、
+  // Day0-Day7 教育配信＋商品案内の予告に書き換え。
   const text2: Message = {
     type: 'text',
-    text: `最初の診断の受け取り方
+    text: `このLINEで届くもの
 
-1. トークで「湖」と送る
-2. 3つの質問に答える
-3. 進む・待つ・手放すの判断材料を受け取る
+1. 数日に分けて、判断軸の話（気持ちより行動 / 進む・待つ・手放す）を届けます
+2. 軽く試したい方には、鏡の湖ミニ鑑定 ¥480 をご案内します
+3. 本格的に整理したい方には、表と裏の恋鑑定 ¥4,980 をご案内します
 
 凛は急がせません。
 まずは読むだけでOKです。`,

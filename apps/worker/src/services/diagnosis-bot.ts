@@ -155,11 +155,25 @@ export interface DiagnosisBotResult {
   consumed: boolean;
 }
 
+// ─────────────────────────────────────────────────────────
+// DEPRECATED 2026-05-24: LINE上の無料診断Bot（「湖」キーワード対話型診断）は廃止。
+// LINEは「教育・導線・宣伝」のみに絞る方針変更（こっさん指示）。
+// 本関数は no-op（消費せず後段の自動返信/ステップ配信へ流す）。
+// 質問文・分類ルール・結果文の文章資産は履歴として残す。
+// 参照: 占い事業/00_戦略/2026-05-24_LINE無料診断Bot廃止_本番反映指示書.md
+// ─────────────────────────────────────────────────────────
+
+const DIAGNOSIS_BOT_ENABLED = false;
+
 export async function handleDiagnosisMessage(
   db: D1Database,
   friendId: string,
   incomingText: string,
 ): Promise<DiagnosisBotResult> {
+  if (!DIAGNOSIS_BOT_ENABLED) {
+    return { messages: [], consumed: false };
+  }
+
   const row = await db.prepare('SELECT metadata FROM friends WHERE id = ?')
     .bind(friendId).first<{ metadata: string }>();
   const metadata = JSON.parse(row?.metadata || '{}') as Record<string, unknown>;
