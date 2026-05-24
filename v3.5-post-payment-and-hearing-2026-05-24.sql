@@ -41,7 +41,7 @@ INSERT INTO scenarios (id, name, description, trigger_type, is_active, line_acco
 VALUES (
   'post_payment_pending_mini_v1',
   'ミニ鑑定¥480 決済後 納品時刻明示',
-  '¥480 ミニ鑑定 決済完了直後に納品時刻（24時間以内）を明示する単発メッセージ。n8n決済webhookから手動enrollで起動。',
+  '¥480 ミニ鑑定 決済完了直後に納品目安（3〜5日以内）を明示する単発メッセージ。n8n決済webhookから手動enrollで起動。',
   'manual',
   1,
   '<RIN_ACCOUNT_ID>'
@@ -86,7 +86,7 @@ INSERT INTO scenarios (id, name, description, trigger_type, is_active, line_acco
 VALUES (
   'post_payment_pending_main_v1',
   '本命鑑定¥4,980 決済後 納品時刻明示+ヒアリング',
-  '¥4,980 表と裏の恋鑑定 決済完了直後に納品時刻（48時間以内）明示 + ヒアリング5項目を2通で配信。n8n決済webhookから手動enrollで起動。',
+  '¥4,980 表と裏の恋鑑定 決済完了直後に納品目安（3〜5日以内）明示 + ヒアリング5項目を2通で配信。n8n決済webhookから手動enrollで起動。',
   'manual',
   1,
   '<RIN_ACCOUNT_ID>'
