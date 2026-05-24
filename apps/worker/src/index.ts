@@ -48,7 +48,6 @@ export type Env = {
     WORKER_URL: string;
     X_HARNESS_URL?: string;  // Optional: X Harness API URL for account linking
     N8N_POSTBACK_SOURCE_URL?: string;  // Optional: n8n WF6 webhook for postback→source記録 (Day0アンケート)
-    ESCALATION_DISCORD_WEBHOOK?: string;  // Optional: 凛LINE エスカレーション通知用 Discord webhook (2026-05-24追加)
   };
   Variables: {
     staff: { id: string; name: string; role: 'owner' | 'admin' | 'staff' };

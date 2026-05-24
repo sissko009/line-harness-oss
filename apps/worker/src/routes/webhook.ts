@@ -17,8 +17,6 @@ import {
 import { fireEvent } from '../services/event-bus.js';
 import { buildMessage, expandVariables } from '../services/step-delivery.js';
 import { handleDiagnosisMessage } from '../services/diagnosis-bot.js';
-import { detectEscalation, buildAcknowledgeMessage, getEscalationBehavior, ESCALATION_LABELS } from '../services/escalation-detector.js';
-import { notifyEscalation } from '../services/escalation-notify.js';
 import type { Env } from '../index.js';
 
 const webhook = new Hono<Env>();
@@ -70,7 +68,7 @@ webhook.post('/webhook', async (c) => {
   const processingPromise = (async () => {
     for (const event of body.events) {
       try {
-        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL, c.env);
+        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL);
       } catch (err) {
         console.error('Error handling webhook event:', err);
       }
@@ -97,7 +95,6 @@ async function handleEvent(
   lineAccountId: string | null = null,
   workerUrl?: string,
   liffUrl?: string,
-  env?: Env['Bindings'],
 ): Promise<void> {
   if (event.type === 'follow') {
     const userId =
@@ -360,76 +357,6 @@ async function handleEvent(
       }
     }
 
-    // ── エスカレーション検出（最優先・カテゴリ別に挙動分岐） ──
-    // 2026-05-24 v2: safety/refund/claim は応答停止+通知、medical_consult は metadata + 通知のみ（応答止めない）
-    // 設計参照: 占い事業/LINE/2026-05-24_クレーム返金体調エスカレーション設計.md
-    const escalationCategory = detectEscalation(incomingText);
-    if (escalationCategory) {
-      const behavior = getEscalationBehavior(escalationCategory);
-      try {
-        // 1. friend metadata に escalation_pending を記録（safety/refund/claim のみ・既存値とマージ）
-        if (behavior.pauseDelivery) {
-          const friendRow = await db.prepare('SELECT metadata FROM friends WHERE id = ?')
-            .bind(friend.id).first<{ metadata: string }>();
-          const existingMeta = JSON.parse(friendRow?.metadata || '{}') as Record<string, unknown>;
-          const mergedMeta = {
-            ...existingMeta,
-            escalation_pending: true,
-            escalation_category: escalationCategory,
-            escalation_at: jstNow(),
-          };
-          await db.prepare('UPDATE friends SET metadata = ?, updated_at = ? WHERE id = ?')
-            .bind(JSON.stringify(mergedMeta), jstNow(), friend.id).run();
-
-          // 配信中シナリオを一時停止（safety/refund/claim のみ）
-          // safety検出後にDay自動配信が届くと事故になるため必須
-          await db.prepare(
-            `UPDATE friend_scenarios SET status = 'paused', updated_at = ? WHERE friend_id = ? AND status = 'active'`,
-          ).bind(jstNow(), friend.id).run();
-        } else {
-          // medical_consult: metadata だけマーク（配信は止めない）
-          const friendRow = await db.prepare('SELECT metadata FROM friends WHERE id = ?')
-            .bind(friend.id).first<{ metadata: string }>();
-          const existingMeta = JSON.parse(friendRow?.metadata || '{}') as Record<string, unknown>;
-          const mergedMeta = {
-            ...existingMeta,
-            medical_consult_at: jstNow(),
-          };
-          await db.prepare('UPDATE friends SET metadata = ?, updated_at = ? WHERE id = ?')
-            .bind(JSON.stringify(mergedMeta), jstNow(), friend.id).run();
-        }
-
-        // 2. 運営者へ通知（Discord webhook・未設定なら no-op）
-        await notifyEscalation(
-          { ESCALATION_DISCORD_WEBHOOK: env?.ESCALATION_DISCORD_WEBHOOK },
-          {
-            category: escalationCategory,
-            friendId: friend.id,
-            friendDisplayName: friend.display_name,
-            incomingText,
-            receivedAt: jstNow(),
-            notifyLevel: behavior.notifyLevel,
-          },
-        );
-
-        // 3. ユーザーへの最小応答 + 後段停止（safety/refund/claim のみ）
-        if (behavior.replyToUser) {
-          await lineClient.replyMessage(event.replyToken, [buildAcknowledgeMessage(escalationCategory)]);
-
-          // 早期return前に message_received fireEvent（後段の line 492 fire を肩代わり）
-          await fireEvent(db, 'message_received', {
-            friendId: friend.id,
-            eventData: { text: incomingText, escalation: ESCALATION_LABELS[escalationCategory] },
-          }, lineAccessToken, lineAccountId);
-
-          return;
-        }
-        // medical_consult は応答せず後段の通常処理に流す（fall-through）
-      } catch (err) {
-        console.error('Escalation handling error:', err);
-        // 通知失敗してもメッセージ受信処理は止めない
-      }
-    }
 
     // ── 診断Bot処理（2026-05-24 DEPRECATED・consumed=false で後段に流す） ──
     const diagnosisResult = await handleDiagnosisMessage(db, friend.id, incomingText);
