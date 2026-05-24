@@ -17,8 +17,21 @@
 -- 反映前にやること:
 --   - <RIN_ACCOUNT_ID> を本番の rin LINE 公式アカウント ID に置換
 --   - D1 dump backup を取得（DEPLOY-NOTES-2026-05-10.md に手順あり）
+--
+-- ⚠️ 重要: 置換忘れガード
+--   下の SELECT で 0 件以外が返ったら、置換漏れで実行を中止する。
+--   wrangler d1 execute --command="SELECT id FROM line_accounts WHERE id = '<RIN_ACCOUNT_ID>'"
+--   ↑ ヒットしたら placeholder のまま実行してリテラル値が入る危険があるので、置換してから再実行。
 
 BEGIN;
+
+-- Placeholder ガード: line_accounts に '<RIN_ACCOUNT_ID>' というIDが残っていれば、ありえないが念のため検出
+-- （SQLite では BEGIN内で RAISE する手段が限られるため、ここでは存在チェック SELECT のみ）
+SELECT
+  CASE WHEN EXISTS (SELECT 1 FROM line_accounts WHERE id = '<RIN_ACCOUNT_ID>')
+    THEN 'WARN: <RIN_ACCOUNT_ID> literal exists in line_accounts — replace before running'
+    ELSE 'OK: no literal placeholder'
+  END AS placeholder_check;
 
 -- ============================================================
 -- 1. ミニ鑑定¥480 決済後 納品時刻明示シナリオ
@@ -106,8 +119,9 @@ VALUES (
 少しお時間をいただいています。
 
 このあと、湖がよく映るために
-5つだけ聞かせてください。
-書ける範囲で大丈夫です。'
+5つだけ確認させてください。
+書ける範囲で大丈夫です。
+答えてもらえなくても、鑑定書はそのまま届きます。'
 )
 ON CONFLICT (scenario_id, step_order) DO UPDATE
 SET message_type = excluded.message_type,
@@ -142,7 +156,21 @@ SET message_type = excluded.message_type,
     message_content = excluded.message_content;
 
 -- ============================================================
--- 3. Verification preview
+-- 3. 旧無料診断Bot トリガーのクリーンアップ (2026-05-24)
+-- ============================================================
+-- 「湖」「凛に見てもらう」「月の便りを待つ」等の旧QRトリガーが auto_replies テーブルに
+-- 残っている場合は無効化する。テーブル名・カラム名は schema を確認の上 line-ops が調整。
+-- 安全のため DELETE ではなく is_active=0 (deactivate) のみ。
+-- 該当カラムが無いスキーマでも実行できるよう個別 UPDATE は line-ops が確認後に追加する形にする。
+
+-- 確認クエリ（事前に手動で実行する想定）:
+--   SELECT * FROM auto_replies WHERE keyword IN ('湖', '凛に見てもらう', '月の便りを待つ');
+-- ヒットしたレコードがあれば次を実行:
+--   UPDATE auto_replies SET is_active = 0 WHERE keyword IN ('湖', '凛に見てもらう', '月の便りを待つ');
+-- ※ auto_replies テーブルやカラム名が異なる場合は schema.sql を確認
+
+-- ============================================================
+-- 4. Verification preview
 -- ============================================================
 
 SELECT

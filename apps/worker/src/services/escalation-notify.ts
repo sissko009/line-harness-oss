@@ -20,31 +20,38 @@ export interface EscalationContext {
   friendDisplayName?: string | null;
   incomingText: string;
   receivedAt: string; // ISO 8601 (JST)
+  /** 通知の温度（urgent: @here付き赤 / normal: 黄色 / digest: 控え目グレー） */
+  notifyLevel?: 'urgent' | 'normal' | 'digest';
 }
 
 /**
  * Discord webhook の payload を組み立てる。
  */
 function buildDiscordPayload(ctx: EscalationContext): Record<string, unknown> {
-  const isSafety = ctx.category === 'safety';
-  const color = isSafety ? 0xff4444 : 0xffaa00; // safety は赤、それ以外はオレンジ
+  const level = ctx.notifyLevel ?? (ctx.category === 'safety' ? 'urgent' : 'normal');
+  const color = level === 'urgent' ? 0xff4444 : level === 'normal' ? 0xffaa00 : 0x808080;
   const truncated = ctx.incomingText.length > 500
     ? ctx.incomingText.slice(0, 500) + '...'
     : ctx.incomingText;
 
   return {
-    content: isSafety ? '@here **凛LINE 安全相談を検知**' : undefined,
+    content: level === 'urgent' ? '@here **凛LINE 安全相談を検知**' : undefined,
     embeds: [{
       title: `凛LINE エスカレーション: ${ESCALATION_LABELS[ctx.category]}`,
       color,
       fields: [
         { name: 'カテゴリ', value: ESCALATION_LABELS[ctx.category], inline: true },
+        { name: '通知温度', value: level, inline: true },
         { name: '受信時刻', value: ctx.receivedAt, inline: true },
         { name: 'friend ID', value: `\`${ctx.friendId}\``, inline: false },
         { name: '表示名', value: ctx.friendDisplayName || '(未設定)', inline: false },
         { name: '受信内容', value: '```\n' + truncated + '\n```', inline: false },
       ],
-      footer: { text: isSafety ? '最優先で対応してください' : '通常エスカレーション' },
+      footer: {
+        text: level === 'urgent' ? '最優先で対応してください'
+          : level === 'normal' ? '通常エスカレーション・営業時間内に対応'
+          : '日次ダイジェスト確認案件',
+      },
     }],
   };
 }
