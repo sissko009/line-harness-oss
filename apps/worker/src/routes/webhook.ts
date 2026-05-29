@@ -16,7 +16,8 @@ import {
 } from '@line-crm/db';
 import { fireEvent } from '../services/event-bus.js';
 import { buildMessage, expandVariables } from '../services/step-delivery.js';
-import { handleDiagnosisMessage } from '../services/diagnosis-bot.js';
+// DEPRECATED 2026-05-25: 無料診断Bot廃止。再有効化時にアンコメントする。
+// import { handleDiagnosisMessage } from '../services/diagnosis-bot.js';
 import type { Env } from '../index.js';
 
 const webhook = new Hono<Env>();
@@ -358,7 +359,11 @@ async function handleEvent(
     }
 
 
-    // ── 診断Bot処理（2026-05-24 DEPRECATED・consumed=false で後段に流す） ──
+    // ── 診断Bot処理（2026-05-25 廃止済み — DIAGNOSIS_BOT_ENABLED=false） ──
+    // 無料診断Bot は廃止。handleDiagnosisMessage は no-op (consumed=false) を返すが、
+    // 不要な DB クエリを避けるため呼び出し自体をスキップする。
+    // 再有効化する場合は DIAGNOSIS_BOT_ENABLED を true に戻し、このブロックのコメントを解除する。
+    /*
     const diagnosisResult = await handleDiagnosisMessage(db, friend.id, incomingText);
     if (diagnosisResult.consumed) {
       try {
@@ -386,6 +391,7 @@ async function handleEvent(
       }, lineAccessToken, lineAccountId);
       return;
     }
+    */
 
     // 自動返信チェック（このアカウントのルール + グローバルルールのみ）
     // NOTE: Auto-replies use replyMessage (free, no quota) instead of pushMessage
