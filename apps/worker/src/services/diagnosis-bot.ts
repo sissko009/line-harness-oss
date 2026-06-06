@@ -180,9 +180,10 @@ export async function handleDiagnosisMessage(
   const state = metadata.diagnosis_state as DiagnosisState | undefined;
 
   if (incomingText === '湖') {
-    metadata.diagnosis_state = { step: 'q1' } as DiagnosisState;
-    await updateMetadata(db, friendId, metadata);
-    return { messages: [buildQ1()], consumed: true };
+    return {
+      messages: [{ type: 'text', text: `凛の「湖」診断は、いまは止めています。\n\nここで見るのは、彼の気持ちを当てることではなく、あなたが感じた違和感と、言葉と行動のズレです。\n\n凛は急がせません。\nまずはDay0からDay7の言葉を、読むだけで大丈夫です。` } as Message],
+      consumed: true,
+    };
   }
 
   if (incomingText === '月の便りを待つ') {
@@ -196,7 +197,7 @@ export async function handleDiagnosisMessage(
     return {
       messages: [{ type: 'text', text: `表と裏の恋鑑定では、次の6点を返します。
 
-- 彼の気持ちの温度感
+- 言葉と行動のズレ
 - この恋の現在地
 - 一番大きい停滞要因
 - 今やらない方がいいこと
