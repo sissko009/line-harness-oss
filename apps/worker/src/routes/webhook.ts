@@ -506,7 +506,7 @@ function buildGreetingMessages(): Message[] {
   // 吹き出し1: 世界観画像（背景+テキスト上下中央配置）
   const image1: Message = {
     type: 'flex',
-    altText: '優しいのに進まない関係を、鏡の湖で整える場所です。',
+    altText: 'ひとりで抱えた違和感を、鏡の湖で、まず置く場所です。',
     contents: {
       type: 'bubble',
       size: 'mega',
@@ -542,10 +542,10 @@ function buildGreetingMessages(): Message[] {
             alignItems: 'center',
             contents: [
               { type: 'text', text: '凛', size: 'sm', color: '#C9B77D', align: 'center', weight: 'bold' },
-              { type: 'text', text: '優しいのに進まない関係を\n鏡の湖で、まず整える', size: 'xxl', weight: 'bold', color: '#F0F0F5', align: 'center', margin: 'xl', wrap: true },
+              { type: 'text', text: 'ひとりで抱えた違和感を\n鏡の湖で、まず置く', size: 'xxl', weight: 'bold', color: '#F0F0F5', align: 'center', margin: 'xl', wrap: true },
               { type: 'separator', color: '#C9B77D44', margin: 'xl' },
-              { type: 'text', text: '彼の気持ちより、\n行動・約束の置き方を見る場所。', size: 'md', color: '#A8A0B8', wrap: true, align: 'center', margin: 'xl' },
-              { type: 'text', text: '3-12か月の境界期間を、\nひとりで抱えなくていい。', size: 'sm', color: '#C9B77D', align: 'center', margin: 'xl', wrap: true },
+              { type: 'text', text: '映すのは彼の心ではなく、\nあなたの直感。', size: 'md', color: '#A8A0B8', wrap: true, align: 'center', margin: 'xl' },
+              { type: 'text', text: 'その違和感は、気のせいじゃない。', size: 'sm', color: '#C9B77D', align: 'center', margin: 'xl', wrap: true },
               { type: 'text', text: '明日から、判断軸の話を届けます', size: 'sm', color: '#A8A0B8', align: 'center', margin: 'sm' },
             ],
           },
@@ -555,8 +555,7 @@ function buildGreetingMessages(): Message[] {
   } as unknown as Message;
 
   // 吹き出し2: LINEで届くもの（LINE標準テキスト）
-  // 2026-05-24 更新: 旧「最初の診断の受け取り方（湖キーワード送信フロー）」を廃止し、
-  // Day0-Day7 教育配信＋商品案内の予告に書き換え。
+  // 2026-06-03 v3.7: 新軸（違和感の肯定 / 彼でなくあなたの感覚 / 年齢煽りなし）に整合。
   const text2: Message = {
     type: 'text',
     text: `このLINEで届くもの
@@ -569,34 +568,30 @@ function buildGreetingMessages(): Message[] {
 まずは読むだけでOKです。`,
   } as Message;
 
-  // 吹き出し3: Day0テキスト（LINE標準テキスト）
+  // 吹き出し3: Day0テキスト（LINE標準テキスト・v3.7 Day0 新軸）
   const text3: Message = {
     type: 'text',
     text: `縁がつながりましたね。
-ここは、30代の優しいのに進まない関係を、鏡の湖で整える場所です。
 
-連絡はある。
-会えばやさしい。
-でも、結婚の話が出ない。
-次の約束が曖昧なまま、32歳や33歳の時間だけが進んでいく。
+優しい言葉はある。
+でも、その優しさと行動が、どこかでズレている。
+連絡はある。会えばやさしい。
+なのに、引っかかるものが消えない。
 
-そんな夜に、凛はいます。
+その違和感を、ひとりで抱えている人へ、ここを開いています。
 
 凛が見るのは、彼の気持ちを当てることではありません。
-気持ちより、行動・約束の置き方を見ます。
-鏡の湖が、表と裏のズレを映すからです。
-
-ここでは、進む・待つ・手放すを自分で選べる軸を作ります。
-急いで決めなくて大丈夫。
-まずは読むだけでOKです。
+映すのは、彼の心ではなく、あなたの直感です。
+あなたが感じていた違和感は、気のせいじゃない。
+そこから、進む・待つ・手放すを自分で選べる軸を作る場所です。
 
 このあと数日に分けて、
 「なぜこんなに苦しいのか」
 「好意の有無だけでは足りない理由」
-「結婚の話が止まる構造」
+「裏がある関係が止まる構造」
 を順に届けます。
 
-必要になった時だけ、関係整理の入口も置いておきます。
+今日は読むだけでOK。
 凛は急がせません。`,
   } as Message;
 
